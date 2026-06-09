@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_alice/core/alice_core.dart';
 import 'package:flutter_alice/helper/alice_alert_helper.dart';
+import 'package:flutter_alice/helper/alice_save_helper.dart';
 import 'package:flutter_alice/model/alice_http_call.dart';
 import 'package:flutter_alice/model/alice_menu_item.dart';
 import 'package:flutter_alice/ui/page/alice_call_details_screen.dart';
 import 'package:flutter_alice/ui/utils/alice_constants.dart';
 import 'package:flutter_alice/ui/widget/alice_call_list_item_widget.dart';
+import 'package:share_plus/share_plus.dart';
 
 import 'alice_stats_screen.dart';
 
@@ -124,6 +127,21 @@ class _AliceCallsListScreenState extends State<AliceCallsListScreen> {
     if (menuItem.title == "Stats") {
       _showStatsScreen();
     }
+    if (menuItem.title == "Save") {
+      _saveAllCalls();
+    }
+  }
+
+  Future<void> _saveAllCalls() async {
+    final calls = aliceCore.callsSubject.value;
+    if (calls.isEmpty) return;
+    final buffer = StringBuffer();
+    for (final call in calls) {
+      buffer.write(await AliceSaveHelper.buildCallLog(call));
+    }
+    final log = buffer.toString();
+    await Clipboard.setData(ClipboardData(text: log));
+    Share.share(log, subject: 'Alice HTTP Logs');
   }
 
   Widget _buildCallsListWrapper() {
