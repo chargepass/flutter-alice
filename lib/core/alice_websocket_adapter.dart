@@ -242,6 +242,10 @@ class AliceWebSocketChannelProxy {
     return 0;
   }
 
+  /// Completes when the WebSocket handshake succeeds, or throws on failure.
+  /// Delegates to the underlying [IOWebSocketChannel.ready].
+  Future<void> get ready => _channel.ready;
+
   /// The underlying [IOWebSocketChannel] in case direct access is needed.
   IOWebSocketChannel get channel => _channel;
 }
