@@ -75,8 +75,39 @@ class AliceSaveHelper {
     return stringBuffer.toString();
   }
 
+  static String _buildWsCallLog(AliceHttpCall call) {
+    final StringBuffer sb = StringBuffer();
+    sb.write("===========================================\n");
+    sb.write("Id: ${call.id}\n");
+    sb.write("===========================================\n");
+    sb.write("WebSocket Connection\n");
+    sb.write("-------------------------------------------\n");
+    sb.write(
+        "URL: ${call.secure ? 'wss' : 'ws'}://${call.server}${call.endpoint}\n");
+    sb.write("Client: ${call.client}\n");
+    sb.write("-------------------------------------------\n");
+    sb.write("Messages (${call.webSocketMessages.length})\n");
+    sb.write("-------------------------------------------\n");
+    for (final msg in call.webSocketMessages) {
+      final dir = msg.isSent ? 'SENT' : 'RCVD';
+      final time =
+          '${msg.time.hour.toString().padLeft(2, '0')}:'
+          '${msg.time.minute.toString().padLeft(2, '0')}:'
+          '${msg.time.second.toString().padLeft(2, '0')}.'
+          '${msg.time.millisecond.toString().padLeft(3, '0')}';
+      final data =
+          msg.data is String ? msg.data as String : '[binary ${msg.size} bytes]';
+      sb.write("[$dir] $time  (${msg.size} bytes)\n$data\n\n");
+    }
+    sb.write("===========================================\n\n");
+    return sb.toString();
+  }
+
   static Future<String> buildCallLog(AliceHttpCall call) async {
     try {
+      if (call.isWebSocket) {
+        return await _buildAliceLog() + _buildWsCallLog(call);
+      }
       return await _buildAliceLog() + _buildCallLog(call);
     } catch (exception) {
       return "Failed to generate call log";

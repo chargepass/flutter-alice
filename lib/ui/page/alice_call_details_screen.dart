@@ -73,12 +73,15 @@ class _AliceCallDetailsScreenState extends State<AliceCallDetailsScreen>
           ),
           key: Key('share_key'),
           onPressed: () async {
-            await Clipboard.setData(
-              ClipboardData(text: await _getSharableResponseString()),
-            );
-            Share.share(
-              await _getSharableResponseString(),
-              subject: 'Request Details',
+            final text = await _getSharableResponseString();
+            await Clipboard.setData(ClipboardData(text: text));
+            SharePlus.instance.share(
+              ShareParams(
+                text: text,
+                subject: call.isWebSocket
+                    ? 'WebSocket Details'
+                    : 'Request Details',
+              ),
             );
           },
           child: Icon(Icons.share, color: Colors.white),
@@ -103,7 +106,9 @@ class _AliceCallDetailsScreenState extends State<AliceCallDetailsScreen>
   }
 
   Future<String> _getSharableResponseString() async {
-    log(widget.call.getCurlCommand(), name: 'CURL');
+    if (!call.isWebSocket) {
+      log(call.getCurlCommand(), name: 'CURL');
+    }
     return AliceSaveHelper.buildCallLog(widget.call);
   }
 

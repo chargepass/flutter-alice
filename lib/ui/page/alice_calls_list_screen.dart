@@ -141,7 +141,7 @@ class _AliceCallsListScreenState extends State<AliceCallsListScreen> {
     }
     final log = buffer.toString();
     await Clipboard.setData(ClipboardData(text: log));
-    Share.share(log, subject: 'Alice HTTP Logs');
+    SharePlus.instance.share(ShareParams(text: log, subject: 'Alice HTTP Logs'));
   }
 
   Widget _buildCallsListWrapper() {
