@@ -6,6 +6,8 @@ import 'package:flutter_alice/model/alice_http_call.dart';
 import 'package:flutter_alice/model/alice_http_request.dart';
 import 'package:flutter_alice/model/alice_http_response.dart';
 import 'package:flutter_alice/model/alice_ws_message.dart';
+import 'package:web_socket_channel/io.dart';
+import 'package:web_socket_channel/web_socket_channel.dart';
 
 /// Wraps a [WebSocket] and records all sent/received messages in Alice.
 ///
@@ -20,6 +22,57 @@ class AliceWebSocketAdapter {
   final AliceCore _aliceCore;
 
   AliceWebSocketAdapter(this._aliceCore);
+
+  /// Wraps an [IOWebSocketChannel] so that all sent/received frames are
+  /// captured by Alice.
+  ///
+  /// Awaits [channel.ready] internally so the call is registered only after
+  /// the WebSocket handshake succeeds.  Throws if the handshake fails.
+  ///
+  /// ```dart
+  /// final channel = IOWebSocketChannel.connect(url, headers: headers);
+  /// final proxy   = await alice.wrapWebSocketChannel(channel, url);
+  /// proxy.stream.listen((msg) { /* handle incoming */ });
+  /// proxy.sink.add('hello');
+  /// ```
+  Future<AliceWebSocketChannelProxy> wrapChannel(
+    IOWebSocketChannel channel,
+    String url,
+  ) async {
+    await channel.ready;
+
+    final uri = Uri.parse(url);
+    final callId = channel.hashCode ^ DateTime.now().millisecondsSinceEpoch;
+
+    final call = AliceHttpCall(callId)
+      ..isWebSocket = true
+      ..client = 'WebSocket (web_socket_channel)'
+      ..method = 'WS'
+      ..uri = url
+      ..server = uri.host
+      ..endpoint = uri.path.isEmpty ? '/' : uri.path
+      ..secure = uri.scheme == 'wss'
+      ..loading = false;
+
+    final handshakeRequest = AliceHttpRequest()
+      ..time = DateTime.now()
+      ..headers = {'upgrade': 'websocket'}
+      ..body = ''
+      ..size = 0;
+
+    final handshakeResponse = AliceHttpResponse()
+      ..status = 101
+      ..body = ''
+      ..size = 0
+      ..time = DateTime.now()
+      ..headers = {'upgrade': 'websocket'};
+
+    call.request = handshakeRequest;
+    call.response = handshakeResponse;
+
+    _aliceCore.addCall(call);
+    return AliceWebSocketChannelProxy(channel, call, _aliceCore);
+  }
 
   /// Wraps [socket] so that all sent/received frames are captured by Alice.
   /// Returns a thin [AliceWebSocketProxy] that delegates to the original socket.
@@ -138,4 +191,86 @@ class AliceWebSocketProxy implements StreamSink<dynamic> {
   WebSocket get socket => _socket;
 
   int get readyState => _socket.readyState;
+}
+
+/// A thin proxy around [IOWebSocketChannel] that intercepts all sent/received
+/// messages and records them in Alice.
+///
+/// Use [stream] to listen for incoming messages and [sink] to send outbound
+/// messages — mirroring the standard [WebSocketChannel] API.
+class AliceWebSocketChannelProxy {
+  final IOWebSocketChannel _channel;
+  final AliceHttpCall _call;
+  final AliceCore _aliceCore;
+
+  AliceWebSocketChannelProxy(this._channel, this._call, this._aliceCore);
+
+  // --- inbound ---
+
+  /// A [Stream] of incoming messages.  Each received message is recorded in
+  /// Alice before being forwarded to the subscriber.
+  late final Stream<dynamic> stream = _channel.stream.map((event) {
+    _call.webSocketMessages.add(AliceWebSocketMessage(
+      data: event,
+      direction: AliceWebSocketMessageDirection.received,
+      time: DateTime.now(),
+    ));
+    _call.response!.size += _sizeOf(event);
+    _aliceCore.callsSubject.add([..._aliceCore.callsSubject.value]);
+    return event;
+  });
+
+  // --- outbound ---
+
+  /// A [WebSocketSink] for sending messages.  Each outbound message is
+  /// recorded in Alice before being forwarded to the underlying channel.
+  late final WebSocketSink sink = _AliceWebSocketSink(_channel.sink, _onSent);
+
+  void _onSent(dynamic data) {
+    _call.webSocketMessages.add(AliceWebSocketMessage(
+      data: data,
+      direction: AliceWebSocketMessageDirection.sent,
+      time: DateTime.now(),
+    ));
+    _call.request!.size += _sizeOf(data);
+    _aliceCore.callsSubject.add([..._aliceCore.callsSubject.value]);
+  }
+
+  int _sizeOf(dynamic data) {
+    if (data is String) return data.length;
+    if (data is List<int>) return data.length;
+    return 0;
+  }
+
+  /// The underlying [IOWebSocketChannel] in case direct access is needed.
+  IOWebSocketChannel get channel => _channel;
+}
+
+/// Internal [WebSocketSink] wrapper that calls [_onAdd] before forwarding
+/// each message to the real sink.
+class _AliceWebSocketSink implements WebSocketSink {
+  final WebSocketSink _inner;
+  final void Function(dynamic) _onAdd;
+
+  _AliceWebSocketSink(this._inner, this._onAdd);
+
+  @override
+  void add(dynamic data) {
+    _onAdd(data);
+    _inner.add(data);
+  }
+
+  @override
+  Future close([int? closeCode, String? closeReason]) =>
+      _inner.close(closeCode, closeReason);
+
+  @override
+  void addError(Object error, [StackTrace? stackTrace]) =>
+      _inner.addError(error, stackTrace);
+
+  @override
+  Future addStream(Stream stream) => _inner.addStream(stream);
+
+  @override
+  Future get done => _inner.done;
 }
