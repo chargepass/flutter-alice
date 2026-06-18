@@ -6,4 +6,5 @@ class AliceConstants {
   static Color green = Color(0xff05c46b);
   static Color grey = Color(0xff808e9b);
   static Color orange = Color(0xffffa801);
+  static Color blue = Color(0xff3498db);
 }
