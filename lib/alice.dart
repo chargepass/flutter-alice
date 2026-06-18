@@ -8,6 +8,7 @@ import 'package:flutter_alice/core/alice_core.dart';
 import 'package:flutter_alice/core/alice_dio_interceptor.dart';
 import 'package:flutter_alice/core/alice_http_adapter.dart';
 import 'package:flutter_alice/core/alice_http_client_adapter.dart';
+import 'package:flutter_alice/core/alice_websocket_adapter.dart';
 import 'package:flutter_alice/model/alice_http_call.dart';
 import 'package:http/http.dart' as http;
 
@@ -30,6 +31,7 @@ class Alice {
   late AliceCore _aliceCore;
   late AliceHttpClientAdapter _httpClientAdapter;
   late AliceHttpAdapter _httpAdapter;
+  late AliceWebSocketAdapter _webSocketAdapter;
 
   /// Creates alice instance.
   Alice(
@@ -48,6 +50,7 @@ class Alice {
     );
     _httpClientAdapter = AliceHttpClientAdapter(_aliceCore);
     _httpAdapter = AliceHttpAdapter(_aliceCore);
+    _webSocketAdapter = AliceWebSocketAdapter(_aliceCore);
   }
 
   /// Set custom navigation key. This will help if there's route library.
@@ -93,10 +96,26 @@ class Alice {
   //   return [AliceChopperInterceptor(_aliceCore)];
   // }
 
-  /// Handle generic http call. Can be used to any http client.R
+  /// Handle generic http call. Can be used to any http client.
   void addHttpCall(AliceHttpCall aliceHttpCall) {
     assert(aliceHttpCall.request != null, "Http call request can't be null");
     assert(aliceHttpCall.response != null, "Http call response can't be null");
     _aliceCore.addCall(aliceHttpCall);
   }
+
+  /// Wraps an already-connected [WebSocket] so that all sent and received
+  /// frames are captured and displayed in the Alice inspector.
+  ///
+  /// ```dart
+  /// final raw = await WebSocket.connect('wss://echo.example.com');
+  /// final ws  = alice.wrapWebSocket(raw, 'wss://echo.example.com');
+  /// ws.listen(onData: (msg) => print(msg));
+  /// ws.add('hello');
+  /// ```
+  AliceWebSocketProxy wrapWebSocket(WebSocket socket, String url) {
+    return _webSocketAdapter.wrap(socket, url);
+  }
+
+  /// Returns the [AliceWebSocketAdapter] for advanced usage.
+  AliceWebSocketAdapter getWebSocketAdapter() => _webSocketAdapter;
 }

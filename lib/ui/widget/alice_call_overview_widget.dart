@@ -23,9 +23,19 @@ class _AliceCallOverviewWidget
     rows.add(getListRow("Method: ", _call.method));
     rows.add(getListRow("Server: ", _call.server));
     rows.add(getListRow("Endpoint: ", _call.endpoint));
-    rows.add(getListRow("Started:", _call.request!.time.toString()));
-    rows.add(getListRow("Finished:", _call.response!.time.toString()));
-    rows.add(getListRow("Duration:", formatDuration(_call.duration)));
+    rows.add(getListRow("Connected:", _call.request!.time.toString()));
+    if (_call.isWebSocket) {
+      final sent =
+          _call.webSocketMessages.where((m) => m.isSent).length;
+      final received =
+          _call.webSocketMessages.where((m) => !m.isSent).length;
+      rows.add(getListRow("Messages sent:", sent.toString()));
+      rows.add(getListRow("Messages received:", received.toString()));
+      rows.add(getListRow("Total messages:", _call.webSocketMessages.length.toString()));
+    } else {
+      rows.add(getListRow("Finished:", _call.response!.time.toString()));
+      rows.add(getListRow("Duration:", formatDuration(_call.duration)));
+    }
     rows.add(getListRow("Bytes sent:", formatBytes(_call.request!.size)));
     rows.add(getListRow("Bytes received:", formatBytes(_call.response!.size)));
     rows.add(getListRow("Client:", _call.client));

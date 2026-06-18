@@ -6,8 +6,8 @@
 [![pub package](https://img.shields.io/github/license/hautvfami/flutter-alice.svg?style=flat)](https://github.com/hautvfami/flutter-alice)
 [![pub package](https://img.shields.io/badge/platform-flutter-blue.svg)](https://github.com/hautvfami/flutter-alice)
 
-Alice is an HTTP Inspector tool for Flutter which helps debugging http requests. 
-It catches and stores http requests and responses, which can be viewed via simple UI. 
+Alice is an HTTP & WebSocket Inspector tool for Flutter which helps debugging network traffic.
+It catches and stores HTTP requests/responses and WebSocket frames, which can be viewed via a simple UI.
 It is inspired from Chuck (https://github.com/jgilfelt/chuck) and Chucker (https://github.com/ChuckerTeam/chucker).
 
 
@@ -62,17 +62,19 @@ Overlay bubble version of Alice: https://github.com/jhomlala/alice
 - Dio
 - HttpClient from dart:io package
 - Http from http/http package
+- WebSocket from dart:io package
 
 [//]: # (- Chopper)
 - Generic HTTP client
 
 **Features:**  
-✔️ Detailed logs for each HTTP calls (HTTP Request, HTTP Response)  
-✔️ Inspector UI for viewing HTTP calls  
+✔️ Detailed logs for each HTTP call (HTTP Request, HTTP Response)  
+✔️ WebSocket connection inspector — view every sent/received frame in real time  
+✔️ Inspector UI for viewing HTTP calls and WebSocket connections  
 ✔️ Statistics  
 ✔️ Support for top used HTTP clients in Dart  
 ✔️ Error handling  
-✔️ HTTP calls search
+✔️ HTTP calls search  
 ✔️ Bubble overlay entry
 
 ## Install
@@ -216,7 +218,44 @@ httpClient
 [//]: # (  interceptors: alice.getChopperInterceptor&#40;&#41;,)
 
 [//]: # (&#41;;)
+
+#### For WebSocket (dart:io)
+
+Use the extension method for the cleanest integration:
+
+```dart
+import 'dart:io';
+import 'package:flutter_alice/core/alice_websocket_extensions.dart';
+
+// Connect and wrap in one line
+final ws = await WebSocket.connect('wss://echo.example.com')
+    .interceptWithAlice(alice, 'wss://echo.example.com');
+
+// Listen for incoming frames — they are recorded automatically
+ws.listen(
+  onData: (message) => print('received: $message'),
+  onDone: () => print('connection closed'),
+);
+
+// Send frames — they are recorded automatically
+ws.add('hello from Alice');
 ```
+
+Or wrap an already-connected socket directly:
+
+```dart
+import 'dart:io';
+
+final rawSocket = await WebSocket.connect('wss://echo.example.com');
+final ws = alice.wrapWebSocket(rawSocket, 'wss://echo.example.com');
+
+ws.listen(onData: (msg) => handleMessage(msg));
+ws.add('ping');
+```
+
+Alice will display each WebSocket connection in the inspector list with a `WS` badge,
+showing sent (↑) and received (↓) frame counts. Tapping the entry opens a detail view
+with a **Messages** tab that streams all frames in chronological order.
 
 ### Opening the Inspector
 You can open the inspector UI in different ways:

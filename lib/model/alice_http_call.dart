@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_alice/model/alice_http_error.dart';
 import 'package:flutter_alice/model/alice_http_request.dart';
 import 'package:flutter_alice/model/alice_http_response.dart';
+import 'package:flutter_alice/model/alice_ws_message.dart';
 
 class AliceHttpCall {
   final int id;
@@ -14,6 +15,13 @@ class AliceHttpCall {
   String server = "";
   String uri = "";
   int duration = 0;
+
+  /// Whether this entry represents a WebSocket connection (not an HTTP call).
+  bool isWebSocket = false;
+
+  /// Messages exchanged over the WebSocket connection (populated only when
+  /// [isWebSocket] is true).
+  List<AliceWebSocketMessage> webSocketMessages = [];
 
   AliceHttpRequest? request;
   AliceHttpResponse? response;

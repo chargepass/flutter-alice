@@ -85,6 +85,13 @@ class AliceCallListItemWidget extends StatelessWidget {
   }
 
   Widget _buildStatsRow() {
+    final sentCount = call.isWebSocket
+        ? call.webSocketMessages.where((m) => m.isSent).length
+        : 0;
+    final rcvdCount = call.isWebSocket
+        ? call.webSocketMessages.where((m) => !m.isSent).length
+        : 0;
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -94,15 +101,24 @@ class AliceCallListItemWidget extends StatelessWidget {
                 style: TextStyle(fontSize: 12))),
         Flexible(
             flex: 1,
-            child: Text("${AliceConversionHelper.formatTime(call.duration)}",
-                style: TextStyle(fontSize: 12))),
+            child: call.isWebSocket
+                ? Text('↑$sentCount ↓$rcvdCount msgs',
+                    style: TextStyle(fontSize: 12))
+                : Text(AliceConversionHelper.formatTime(call.duration),
+                    style: TextStyle(fontSize: 12))),
         Flexible(
           flex: 1,
-          child: Text(
-            "${AliceConversionHelper.formatBytes(call.request!.size)} / "
-            "${AliceConversionHelper.formatBytes(call.response!.size)}",
-            style: TextStyle(fontSize: 12),
-          ),
+          child: call.isWebSocket
+              ? Text(
+                  '${AliceConversionHelper.formatBytes(call.request!.size)} / '
+                  '${AliceConversionHelper.formatBytes(call.response!.size)}',
+                  style: TextStyle(fontSize: 12),
+                )
+              : Text(
+                  '${AliceConversionHelper.formatBytes(call.request!.size)} / '
+                  '${AliceConversionHelper.formatBytes(call.response!.size)}',
+                  style: TextStyle(fontSize: 12),
+                ),
         )
       ],
     );
@@ -124,6 +140,23 @@ class AliceCallListItemWidget extends StatelessWidget {
   }
 
   Widget _buildResponseColumn(BuildContext context) {
+    if (call.isWebSocket) {
+      return Container(
+        width: 60,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Icon(Icons.swap_horiz, color: _wsColor, size: 18),
+            const SizedBox(height: 2),
+            Text(
+              '${call.webSocketMessages.length}',
+              style: TextStyle(fontSize: 14, color: _wsColor),
+            ),
+          ],
+        ),
+      );
+    }
+
     List<Widget> widgets = [];
     if (call.loading) {
       widgets.add(Text('Loading..', style: TextStyle(fontSize: 12)));
@@ -147,7 +180,10 @@ class AliceCallListItemWidget extends StatelessWidget {
     );
   }
 
+  Color get _wsColor => AliceConstants.blue;
+
   Color? _getStatusTextColor(BuildContext context) {
+    if (call.isWebSocket) return _wsColor;
     int status = call.response?.status ?? 0;
     if (status == -1) {
       return AliceConstants.red;
@@ -165,6 +201,7 @@ class AliceCallListItemWidget extends StatelessWidget {
   }
 
   Color? _getEndpointTextColor(BuildContext context) {
+    if (call.isWebSocket) return _wsColor;
     if (call.loading) {
       return AliceConstants.grey;
     } else {

@@ -11,6 +11,7 @@ import 'package:flutter_alice/ui/widget/alice_call_error_widget.dart';
 import 'package:flutter_alice/ui/widget/alice_call_overview_widget.dart';
 import 'package:flutter_alice/ui/widget/alice_call_request_widget.dart';
 import 'package:flutter_alice/ui/widget/alice_call_response_widget.dart';
+import 'package:flutter_alice/ui/widget/alice_call_ws_widget.dart';
 import 'package:share_plus/share_plus.dart';
 
 class AliceCallDetailsScreen extends StatefulWidget {
@@ -61,8 +62,9 @@ class _AliceCallDetailsScreenState extends State<AliceCallDetailsScreen>
   }
 
   Widget _buildMainWidget() {
+    final tabCount = call.isWebSocket ? 3 : 4;
     return DefaultTabController(
-      length: 4,
+      length: tabCount,
       child: Scaffold(
         floatingActionButton: FloatingActionButton(
           backgroundColor: AliceConstants.lightRed,
@@ -86,7 +88,8 @@ class _AliceCallDetailsScreenState extends State<AliceCallDetailsScreen>
             indicatorColor: AliceConstants.lightRed,
             tabs: _getTabBars(),
           ),
-          title: Text('Alice - HTTP Call Details'),
+          title: Text(
+              call.isWebSocket ? 'Alice - WebSocket Details' : 'Alice - HTTP Call Details'),
         ),
         body: TabBarView(
           children: _getTabBarViewList(),
@@ -105,27 +108,34 @@ class _AliceCallDetailsScreenState extends State<AliceCallDetailsScreen>
   }
 
   List<Widget> _getTabBars() {
-    List<Widget> widgets = [];
-    widgets.add(Tab(icon: Icon(Icons.info_outline), text: "Overview"));
-    widgets.add(Tab(icon: Icon(Icons.arrow_upward), text: "Request"));
-    widgets.add(Tab(icon: Icon(Icons.arrow_downward), text: "Response"));
-    widgets.add(
-      Tab(
-        icon: Icon(Icons.warning),
-        text: "Error",
-      ),
-    );
-    return widgets;
+    if (call.isWebSocket) {
+      return [
+        Tab(icon: Icon(Icons.info_outline), text: "Overview"),
+        Tab(icon: Icon(Icons.swap_horiz), text: "Messages"),
+        Tab(icon: Icon(Icons.warning), text: "Error"),
+      ];
+    }
+    return [
+      Tab(icon: Icon(Icons.info_outline), text: "Overview"),
+      Tab(icon: Icon(Icons.arrow_upward), text: "Request"),
+      Tab(icon: Icon(Icons.arrow_downward), text: "Response"),
+      Tab(icon: Icon(Icons.warning), text: "Error"),
+    ];
   }
 
   List<Widget> _getTabBarViewList() {
-    List<Widget> widgets = [];
-    widgets.add(AliceCallOverviewWidget(widget.call));
-    widgets.add(
+    if (call.isWebSocket) {
+      return [
+        AliceCallOverviewWidget(widget.call),
+        AliceCallWsWidget(widget.call),
+        AliceCallErrorWidget(widget.call),
+      ];
+    }
+    return [
+      AliceCallOverviewWidget(widget.call),
       AliceCallRequestWidget(widget.call.request ?? AliceHttpRequest()),
-    );
-    widgets.add(AliceCallResponseWidget(widget.call));
-    widgets.add(AliceCallErrorWidget(widget.call));
-    return widgets;
+      AliceCallResponseWidget(widget.call),
+      AliceCallErrorWidget(widget.call),
+    ];
   }
 }
