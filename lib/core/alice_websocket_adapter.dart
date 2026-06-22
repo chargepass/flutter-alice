@@ -6,6 +6,7 @@ import 'package:flutter_alice/model/alice_http_call.dart';
 import 'package:flutter_alice/model/alice_http_request.dart';
 import 'package:flutter_alice/model/alice_http_response.dart';
 import 'package:flutter_alice/model/alice_ws_message.dart';
+import 'package:stream_channel/stream_channel.dart';
 import 'package:web_socket_channel/io.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
@@ -23,24 +24,24 @@ class AliceWebSocketAdapter {
 
   AliceWebSocketAdapter(this._aliceCore);
 
-  /// Wraps an [IOWebSocketChannel] so that all sent/received frames are
-  /// captured by Alice.
+  /// Wraps an [IOWebSocketChannel] and returns the proxy synchronously, without
+  /// awaiting the WebSocket handshake.
   ///
-  /// Awaits [channel.ready] internally so the call is registered only after
-  /// the WebSocket handshake succeeds.  Throws if the handshake fails.
+  /// The returned [AliceWebSocketChannelProxy] implements [WebSocketChannel],
+  /// so callers can await [AliceWebSocketChannelProxy.ready] themselves once the
+  /// proxy is created.
   ///
   /// ```dart
   /// final channel = IOWebSocketChannel.connect(url, headers: headers);
-  /// final proxy   = await alice.wrapWebSocketChannel(channel, url);
+  /// final proxy   = alice.wrapWebSocketChannelSync(channel, url);
+  /// await proxy.ready;
   /// proxy.stream.listen((msg) { /* handle incoming */ });
   /// proxy.sink.add('hello');
   /// ```
-  Future<AliceWebSocketChannelProxy> wrapChannel(
+  AliceWebSocketChannelProxy wrapChannelSync(
     IOWebSocketChannel channel,
     String url,
-  ) async {
-    await channel.ready;
-
+  ) {
     final uri = Uri.parse(url);
     final callId = channel.hashCode ^ DateTime.now().millisecondsSinceEpoch;
 
@@ -196,9 +197,12 @@ class AliceWebSocketProxy implements StreamSink<dynamic> {
 /// A thin proxy around [IOWebSocketChannel] that intercepts all sent/received
 /// messages and records them in Alice.
 ///
-/// Use [stream] to listen for incoming messages and [sink] to send outbound
-/// messages — mirroring the standard [WebSocketChannel] API.
-class AliceWebSocketChannelProxy {
+/// Implements [WebSocketChannel] so it can be used anywhere a
+/// [WebSocketChannel] is expected. Use [stream] to listen for incoming messages
+/// and [sink] to send outbound messages — mirroring the standard
+/// [WebSocketChannel] API.
+class AliceWebSocketChannelProxy with StreamChannelMixin<dynamic>
+    implements WebSocketChannel {
   final IOWebSocketChannel _channel;
   final AliceHttpCall _call;
   final AliceCore _aliceCore;
@@ -209,6 +213,7 @@ class AliceWebSocketChannelProxy {
 
   /// A [Stream] of incoming messages.  Each received message is recorded in
   /// Alice before being forwarded to the subscriber.
+  @override
   late final Stream<dynamic> stream = _channel.stream.map((event) {
     _call.webSocketMessages.add(AliceWebSocketMessage(
       data: event,
@@ -224,6 +229,7 @@ class AliceWebSocketChannelProxy {
 
   /// A [WebSocketSink] for sending messages.  Each outbound message is
   /// recorded in Alice before being forwarded to the underlying channel.
+  @override
   late final WebSocketSink sink = _AliceWebSocketSink(_channel.sink, _onSent);
 
   void _onSent(dynamic data) {
@@ -244,7 +250,23 @@ class AliceWebSocketChannelProxy {
 
   /// Completes when the WebSocket handshake succeeds, or throws on failure.
   /// Delegates to the underlying [IOWebSocketChannel.ready].
+  @override
   Future<void> get ready => _channel.ready;
+
+  /// The subprotocol selected by the server, or `null` if none was negotiated.
+  /// Delegates to the underlying [IOWebSocketChannel.protocol].
+  @override
+  String? get protocol => _channel.protocol;
+
+  /// The close code set when the connection is closed, or `null` if it is still
+  /// open. Delegates to the underlying [IOWebSocketChannel.closeCode].
+  @override
+  int? get closeCode => _channel.closeCode;
+
+  /// The close reason set when the connection is closed, or `null` if it is
+  /// still open. Delegates to the underlying [IOWebSocketChannel.closeReason].
+  @override
+  String? get closeReason => _channel.closeReason;
 
   /// The underlying [IOWebSocketChannel] in case direct access is needed.
   IOWebSocketChannel get channel => _channel;

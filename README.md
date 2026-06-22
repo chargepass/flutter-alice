@@ -253,6 +253,30 @@ ws.listen(onData: (msg) => handleMessage(msg));
 ws.add('ping');
 ```
 
+#### For WebSocketChannel (web_socket_channel)
+
+`interceptWithAlice` on an `IOWebSocketChannel` returns synchronously and the
+returned proxy implements `WebSocketChannel`, so it can be assigned straight to a
+`WebSocketChannel?` field. Await `ready` yourself once you have the proxy:
+
+```dart
+import 'package:flutter_alice/core/alice_websocket_extensions.dart';
+import 'package:web_socket_channel/io.dart';
+import 'package:web_socket_channel/web_socket_channel.dart';
+
+final rawChannel = IOWebSocketChannel.connect(url, headers: headers);
+
+WebSocketChannel? webSocketChannel;
+webSocketChannel = isAliceEnabled
+    ? rawChannel.interceptWithAlice(alice, url) // AliceWebSocketChannelProxy implements WebSocketChannel
+    : rawChannel;                               // IOWebSocketChannel extends WebSocketChannel
+
+await webSocketChannel!.ready;
+webSocketChannel!.stream.listen((msg) => print('received: $msg'));
+webSocketChannel!.sink.add('hello');
+webSocketChannel!.sink.close();
+```
+
 Alice will display each WebSocket connection in the inspector list with a `WS` badge,
 showing sent (↑) and received (↓) frame counts. Tapping the entry opens a detail view
 with a **Messages** tab that streams all frames in chronological order.

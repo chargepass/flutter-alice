@@ -12,6 +12,7 @@ import 'package:flutter_alice/core/alice_websocket_adapter.dart';
 import 'package:flutter_alice/model/alice_http_call.dart';
 import 'package:http/http.dart' as http;
 import 'package:web_socket_channel/io.dart';
+import 'package:web_socket_channel/web_socket_channel.dart';
 
 class Alice {
   /// Should user be notified with notification if there's new request catched
@@ -118,22 +119,25 @@ class Alice {
   }
 
   /// Wraps an [IOWebSocketChannel] so that all sent and received frames are
-  /// captured and displayed in the Alice inspector.
+  /// captured and displayed in the Alice inspector, returning the proxy
+  /// synchronously without awaiting the WebSocket handshake.
   ///
-  /// Awaits the WebSocket handshake internally — call this right after
-  /// creating the channel, before subscribing to [channel.stream].
+  /// The returned [AliceWebSocketChannelProxy] implements [WebSocketChannel],
+  /// so it can be assigned to a `WebSocketChannel?` field and awaited via
+  /// [AliceWebSocketChannelProxy.ready].
   ///
   /// ```dart
   /// final channel = IOWebSocketChannel.connect(url, headers: headers);
-  /// final proxy   = await alice.wrapWebSocketChannel(channel, url);
+  /// final proxy   = alice.wrapWebSocketChannelSync(channel, url);
+  /// await proxy.ready;
   /// proxy.stream.listen((msg) => print(msg));
   /// proxy.sink.add('hello');
   /// ```
-  Future<AliceWebSocketChannelProxy> wrapWebSocketChannel(
+  AliceWebSocketChannelProxy wrapWebSocketChannelSync(
     IOWebSocketChannel channel,
     String url,
   ) {
-    return _webSocketAdapter.wrapChannel(channel, url);
+    return _webSocketAdapter.wrapChannelSync(channel, url);
   }
 
   /// Returns the [AliceWebSocketAdapter] for advanced usage.
